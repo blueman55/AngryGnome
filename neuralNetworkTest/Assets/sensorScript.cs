@@ -11,8 +11,9 @@ public class sensorScript : MonoBehaviour {
 	void Update () {
 	
 		//while time
-		transform.Translate (0.05f,0,0);
-		Destroy (gameObject, 1f);
+		transform.Translate (Vector3.forward*Time.deltaTime*0.09f);
+		//transform.Translate (0.05f,0,0);
+		Destroy (gameObject, 3f);
 
 	}
 	void OnCollisionEnter(Collision coll)
