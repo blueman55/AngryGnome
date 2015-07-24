@@ -6,18 +6,31 @@ public class moveAndCollide : MonoBehaviour {
 	List<Collider> validColliders; //holds all colliders sphere has sensed
 	Collider[] hitColliders; // holds all colliders currently sensed
 	private float radius = 1;
+	private int size;
 	GameObject testSphere;
-	//private Material materialColored;
+	private Dictionary<string, weightAngle> neuralValues;//holds square and weight ie {0,0|1,1|0,1|1,0 : .83};
+
+	///<summary>
+	/// used to create a dictionary mapping one key to two values
+	///</summary>
+	public class weightAngle
+	{
+		public float Weight {get; protected set;};
+		public float Angle {get; protected set;};
+		public weightAngle(float weight, float angle){
+			Weight = weight;
+			Angle = angle;
+		}
+	}
 
 	/// 
 	///	
 	// Use this for initialization
 	void Start () {
+		neuralValues = new Dictionary<string,weightAngle> {}; 
 		hitColliders = Physics.OverlapSphere (transform.position, radius); //get current colliders in range
 		validColliders = new List<Collider>(); // initialize validColliders
 		testSphere = GameObject.Find("Sphere"); //FOR TESTING
-		//materialColored = new Material(Shader.Find("willowbark")); //FOR TESTING
-		//materialColored.color = currentColor = ObjectColor;
 		calculateValidColliders (); // add correct objects to found list of colliders
 
 	}
@@ -30,6 +43,13 @@ public class moveAndCollide : MonoBehaviour {
 		calculateValidColliders(); //see method
 		printValidCollider(); //FOR TESTING changes seen wall to blue for debugging
 		testSphere.transform.Translate(Vector3.right*Time.deltaTime*1.3f); //FOR TESTING
+	}
+
+	/// <summary>
+	/// Should read a saved state for a neural network
+	/// </summary>
+	void readNeuralNetworkState(){
+
 	}
 
 	////METHOD updates list of known walls found (cubes) based on those currently in vision
