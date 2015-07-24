@@ -15,14 +15,14 @@ public class moveAndCollide : MonoBehaviour {
 	///</summary>
 	public class weightAngle
 	{
-		public float Weight {get; protected set;};
-		public float Angle {get; protected set;};
+		public float Weight { get; protected set;}
+		public float Angle { get; protected set;}
 		public weightAngle(float weight, float angle){
 			Weight = weight;
 			Angle = angle;
 		}
 	}
-
+	
 	/// 
 	///	
 	// Use this for initialization
