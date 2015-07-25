@@ -1,33 +1,98 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public class moveAndCollide : MonoBehaviour {
 	List<Collider> validColliders; //holds all colliders sphere has sensed
 	Collider[] hitColliders; // holds all colliders currently sensed
-	private float radius = 1;
-	private int size;
+	public float radius = 1f;
+	public float gridMultiplier = 0.25f; //changes the size of path grid for effecting precision
 	GameObject testSphere;
-	private Dictionary<string, weightAngle> neuralValues;//holds square and weight ie {0,0|1,1|0,1|1,0 : .83};
+
+	private Dictionary<XZKey, weightAngle> neuralValues;//holds square and weight ie {"(0,0)" : one};
+	// neuralValues{"0|1|1|0"} == one; one.Weight.get   
 
 	///<summary>
 	/// used to create a dictionary mapping one key to two values
 	///</summary>
 	public class weightAngle
 	{
-		public float Weight { get; protected set;}
-		public float Angle { get; protected set;}
+		public float Weight { get;  set;}
+		public float Angle { get;  set;}
 		public weightAngle(float weight, float angle){
 			Weight = weight;
 			Angle = angle;
 		}
 	}
+
+	///<summary>
+	/// holds the XZ key for the dictionary, each XZ key must have a unique name
+	/// for unique name ASUMPTION WALLS NEVER OVERLAP
+	/// </summary>
+	public class XZKey
+	{
+		public float X { get; protected set; }
+		public float Z { get; protected set; }
+		public XZKey(float x, float z){
+			X = x;
+			Z = z;
+		}
+	}
+
+	/// <summary>
+	/// Find the current square on the map you reside in. Each square has a weight and angle.
+	/// Grid multiplier determines how many squares the grid (map) is broken into.
+	/// The smaller the gridmultiplier, the more preces the neural network.
+	/// </summary>
+	void currentSpace(double x, double z){
+		float nearestX = findNearest(x); 
+		float nearestZ = findNearest(z);
+		XZKey currentKey = new XZKey (nearestX,nearestZ);
+		weightAngle test = new weightAngle (22, 45); //FOR TESTING
+		if (containsKey(neuralValues, currentKey) == false) {
+			neuralValues.Add(currentKey,test);
+		}
+	}
+
+
+
+	bool containsKey(Dictionary<XZKey, weightAngle> neuralValues, XZKey currentKey){
+		bool found = false;
+		for (int i = 0; i<neuralValues.Count; i++){
+			if(neuralValues.Keys.ElementAt(i).X == currentKey.X && neuralValues.Keys.ElementAt(i).Z == currentKey.Z){
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	void printDictionary(){
+		for (int i = 0; i<neuralValues.Count; i++){
+			print("current key x = " + neuralValues.Keys.ElementAt(i).X);
+			print("current key y = " + neuralValues.Keys.ElementAt(i).Z);
+			print ("current key angle = " + neuralValues.Values.ElementAt(i).Angle);
+			print ("current key weight = " + neuralValues.Values.ElementAt(i).Weight);
+			}
+		}
+
+	/// <summary>
+	/// Find nearest multiple of gridmultiplier, using the floor.
+	/// </summary>
+	/// <returns>The nearest multiple of grid multiplier (bounds of current square).</returns>
+	float findNearest(double currentPoint){ 
+		float floatedCurrentPoint = (float)currentPoint;
+		float gridResolutionFactor;
+		gridResolutionFactor = Mathf.Floor((floatedCurrentPoint / gridMultiplier));
+		return gridResolutionFactor * gridMultiplier;
+	}
+
 	
 	/// 
 	///	
 	// Use this for initialization
 	void Start () {
-		neuralValues = new Dictionary<string,weightAngle> {}; 
+		neuralValues = new Dictionary<XZKey,weightAngle> {}; 
 		hitColliders = Physics.OverlapSphere (transform.position, radius); //get current colliders in range
 		validColliders = new List<Collider>(); // initialize validColliders
 		testSphere = GameObject.Find("Sphere"); //FOR TESTING
@@ -43,6 +108,8 @@ public class moveAndCollide : MonoBehaviour {
 		calculateValidColliders(); //see method
 		printValidCollider(); //FOR TESTING changes seen wall to blue for debugging
 		testSphere.transform.Translate(Vector3.right*Time.deltaTime*1.3f); //FOR TESTING
+		currentSpace (testSphere.transform.position.x, testSphere.transform.position.z);
+		printDictionary ();
 	}
 
 	/// <summary>
@@ -52,7 +119,7 @@ public class moveAndCollide : MonoBehaviour {
 
 	}
 
-	////METHOD updates list of known walls found (cubes) based on those currently in vision
+	////METHOD updates list of known walls found (cubes) based on those currently in vision.
     //// after first pass, would like only segments of wall in view, instead of discovering whole cube (section of wall)
     //// once one portion is seen. 
 	void calculateValidColliders(){
@@ -91,12 +158,12 @@ public class moveAndCollide : MonoBehaviour {
 	/// turns found walls blue, for testing purposes
 	/// </summary>
 	void printValidCollider(){
+		int x = 10 / 4;
 		int total_objects = 0;
 		foreach (Collider collider in validColliders){
 			collider.renderer.material.color = Color.blue;
 			total_objects+=1;
 		}
-		print ("Total number wall cubes found: " + total_objects);
 	}
 
 	/// <summary>
