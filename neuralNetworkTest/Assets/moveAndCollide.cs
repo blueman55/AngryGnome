@@ -10,19 +10,21 @@ public class moveAndCollide : MonoBehaviour {
 	public float gridMultiplier = 0.25f; //changes the size of path grid for effecting precision
 	GameObject testSphere;
 
-	private Dictionary<XZKey, weightAngle> neuralValues;//holds square and weight ie {"(0,0)" : one};
+	private Dictionary<XZKey, weightAngleTimesVisited> neuralValues;//holds square and weight ie {"(0,0)" : one};
 	// neuralValues{"0|1|1|0"} == one; one.Weight.get   
 
 	///<summary>
 	/// used to create a dictionary mapping one key to two values
 	///</summary>
-	public class weightAngle
+	public class weightAngleTimesVisited
 	{
 		public float Weight { get;  set;}
 		public float Angle { get;  set;}
-		public weightAngle(float weight, float angle){
+		public int TimesVisited{ get; set;}
+		public weightAngleTimesVisited(float weight, float angle, int timesVisited){
 			Weight = weight;
 			Angle = angle;
+			TimesVisited = timesVisited;
 		}
 	}
 
@@ -49,15 +51,73 @@ public class moveAndCollide : MonoBehaviour {
 		float nearestX = findNearest(x); 
 		float nearestZ = findNearest(z);
 		XZKey currentKey = new XZKey (nearestX,nearestZ);
-		weightAngle test = new weightAngle (22, 45); //FOR TESTING
+		weightAngleTimesVisited test = new weightAngleTimesVisited (22, 45, 3); //FOR TESTING
 		if (containsKey(neuralValues, currentKey) == false) {
 			neuralValues.Add(currentKey,test);
 		}
 	}
 
+	float calculateDistance (float x1, float y1, float x2, float y2, float angleToObject){
+		// calculate distance
+		float foundDistance;
+		}
 
+	/// <summary>
+	/// returns the angle from the moving units point of origin to a centerpoint of a collider
+	/// This is used to calculate the distance, as well as in neural networ weighting
+	/// </summary>
+	float calculateRaycastAngle(float x1,float z1, float x2, float z2){
+		float foundAngle = 0;
+		if (x1 == x2) { // edge cases first
+			if((z2-z1)>0){
+				foundAngle = 90;
+			}else{
+				foundAngle = 270;
+			}
+			return foundAngle;
+		} else if (z2 == z1) {
+			if((x2-x1)>0){
+				foundAngle = 0;
+			}else{
+				foundAngle = 180;
+			}
+			return foundAngle;
+		} else {
+			float magX = x2-x1;
+			float magZ = z2-z1;
+			if(magX>0){
+				if(magZ > 0){
+					foundAngle = Mathf.Rad2Deg*Mathf.Atan((magZ/magX)); //QUAD 1
+				}else{
+					foundAngle = (Mathf.Rad2Deg*Mathf.Atan((magZ/magX)))+360; //QUAD 4
+				}
+			}else{
+				if(magZ>0){
+					foundAngle = (Mathf.Rad2Deg*Mathf.Atan((magZ/magX)))+180; //QUAD 2
+				}else{
+					foundAngle = (Mathf.Rad2Deg*Mathf.Atan((magZ/magX)))+180; // QUAD 3
+				}
+			}
+		}
+		return foundAngle;
+	}
 
-	bool containsKey(Dictionary<XZKey, weightAngle> neuralValues, XZKey currentKey){
+	float calculateWallWeight(float foundDistance){
+		float distanceContribution = 1/foundDistance;
+		//otherstuff
+		return test;
+	}
+
+	float calcuatetimesVisitedWeight(int timesVisited){
+		//timesVisited x constant
+		return 1f;
+	}
+
+	float calculateFinalWeight(){
+		return 1f;
+	}
+
+	bool containsKey(Dictionary<XZKey, weightAngleTimesVisited> neuralValues, XZKey currentKey){
 		bool found = false;
 		for (int i = 0; i<neuralValues.Count; i++){
 			if(neuralValues.Keys.ElementAt(i).X == currentKey.X && neuralValues.Keys.ElementAt(i).Z == currentKey.Z){
@@ -67,13 +127,17 @@ public class moveAndCollide : MonoBehaviour {
 		return found;
 	}
 
-	void printDictionary(){
+	void printDictionary(){ //FOR TESTING
 		for (int i = 0; i<neuralValues.Count; i++){
 			print("current key x = " + neuralValues.Keys.ElementAt(i).X);
 			print("current key y = " + neuralValues.Keys.ElementAt(i).Z);
-			print ("current key angle = " + neuralValues.Values.ElementAt(i).Angle);
 			print ("current key weight = " + neuralValues.Values.ElementAt(i).Weight);
 			}
+		for (int i=0; i<validColliders.Count; i++) {
+			print ("mag x: "+ (validColliders[i].transform.position.x - testSphere.transform.position.x));
+			print ("mag y: "+ (validColliders[i].transform.position.z - testSphere.transform.position.z));
+			print ("angle calculation: " + calculateRaycastAngle(testSphere.transform.position.x, testSphere.transform.position.z, validColliders[i].transform.position.x, validColliders[i].transform.position.z));
+				}
 		}
 
 	/// <summary>
@@ -92,7 +156,7 @@ public class moveAndCollide : MonoBehaviour {
 	///	
 	// Use this for initialization
 	void Start () {
-		neuralValues = new Dictionary<XZKey,weightAngle> {}; 
+		neuralValues = new Dictionary<XZKey,weightAngleTimesVisited> {}; 
 		hitColliders = Physics.OverlapSphere (transform.position, radius); //get current colliders in range
 		validColliders = new List<Collider>(); // initialize validColliders
 		testSphere = GameObject.Find("Sphere"); //FOR TESTING
