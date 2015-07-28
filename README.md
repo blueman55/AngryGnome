@@ -1,5 +1,5 @@
 # AngryGnome
-Game Development Group
+<b>Game Development Group</b>
 
 <b>NeuralNetworkTest Overview</b> <br>
 This unity project tests scripts for real-time pathfinding applied to a neural network. <br>
