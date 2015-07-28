@@ -1,7 +1,7 @@
 # AngryGnome
 Game Development Group
 
-NeuralNetworkTest Overview <br>
+<b>NeuralNetworkTest Overview</b> <br>
 This unity project tests scripts for real-time pathfinding applied to a neural network. <br>
 At the moment, the moveandcollide script is what is applied to moving agents and enables them to traverse a dynamic environment<br> 
 It can... <br>
