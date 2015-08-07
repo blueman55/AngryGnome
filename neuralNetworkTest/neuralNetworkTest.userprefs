@@ -1,8 +1,8 @@
 ﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" PreferredExecutionTarget="MonoDevelop.Default" />
   <MonoDevelop.Ide.Workbench ActiveDocument="Assets\moveAndCollide.cs">
     <Files>
-      <File FileName="Assets\moveAndCollide.cs" Line="259" Column="41" />
+      <File FileName="Assets\moveAndCollide.cs" Line="116" Column="47" />
       <File FileName="Assets\test.txt" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>

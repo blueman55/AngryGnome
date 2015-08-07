@@ -13,7 +13,7 @@ public class moveAndCollide : MonoBehaviour {
 	XZKey previousSquare;
 	bool firstFrame;
 	public float wallWeighting = 1;
-	public float visitedWeighting = 0;
+	public float visitedWeighting = 1;
 
 	private List<listNode> neuralValues;
 	//the environment is divided up into squares, the amount of which is set by the multiplier gridMultiplier
@@ -113,8 +113,12 @@ public class moveAndCollide : MonoBehaviour {
 					neuralValues[i].watv.WallAvoid = currentWTV.WallAvoid;
 					neuralValues[i].watv.Weight = finalVector.Weight;
 					if(firstFrame == true || previousSquare.X != nearestX || previousSquare.Z != nearestZ){
-					neuralValues[i].watv.TimesVisited = neuralValues[i].watv.TimesVisited + .2f;
+						if(neuralValues[i].watv.TimesVisited < 4){
+					neuralValues[i].watv.TimesVisited = neuralValues[i].watv.TimesVisited + .4f;
+						}
 					}
+					print("timesvisvector mag: "+neuralValues[i].watv.TimesVisited);
+					print ("wall weight: "+ neuralValues[i].watv.Weight);
 					currentWTV.Angle = finalVector.Angle;
 					currentWTV.Weight = finalVector.Weight;
 				}
@@ -149,22 +153,26 @@ public class moveAndCollide : MonoBehaviour {
 		float zmagVisited = 0;
 		float xmagFinal = 0;
 		float zmagFinal = 0;
-		zmagWall = (Mathf.Sin(wallVector.Angle))*wallVector.Weight;
-		zmagVisited = (Mathf.Sin(timeVisitedVector.Angle))*timeVisitedVector.Weight;
-		print ("zmagVisited: " + zmagVisited);
-		print ("wall zmag: "+zmagWall);
+		float tempAngleW = wallVector.Angle;
+		float tempAngleT = timeVisitedVector.Angle;
+		tempAngleT = ((tempAngleT * (2 * Mathf.PI)) / 360);
+		tempAngleW = ((tempAngleW * (2 * Mathf.PI)) / 360);
+		zmagWall = ((Mathf.Sin(tempAngleW))*wallVector.Weight);
+		//print ("wall magnitude(in final vector): "+wallVector.Weight);
+		//print ("wall vector angle(in final vector): "+wallVector.Angle);
+		zmagVisited = ((Mathf.Sin(tempAngleT))*timeVisitedVector.Weight)*-1;
 		zmagFinal = zmagWall + zmagVisited;
-		print ("final zmag: "+zmagFinal);
-		xmagWall = (Mathf.Cos(wallVector.Angle))*wallVector.Weight;
-		xmagVisited = (Mathf.Cos(timeVisitedVector.Angle))*timeVisitedVector.Weight;
-		print ("wall xmag: "+xmagWall);
+		//print ("wall zmag(in calcfinalvector): "+zmagFinal);
+		xmagWall = ((Mathf.Cos(tempAngleW))*wallVector.Weight)*-1;
+		xmagVisited = ((Mathf.Cos(tempAngleT))*timeVisitedVector.Weight);
 		xmagFinal = xmagWall + xmagVisited;
-		print ("final xmag: "+xmagFinal);
+		//print ("temp angle t visited(in calcfinalvector): "+tempAngleT);
+		//print ("zmag visited(in calcfinalvector): "+zmagVisited);
+		//print ("xmag visited(in calcfinalvector): "+xmagVisited);
 		float finalVectorMag = Mathf.Sqrt((float)Mathf.Pow(xmagFinal, 2) + (float)Mathf.Pow(zmagFinal, 2));
 		Vector wallVectorTEST = calculateWallVector (hitcolliders); //mult
 		float finalVectorAngle = ((calculateRaycastAngle (xmagFinal, zmagFinal)));
-		print ("timesvisitedangle: "+timeVisitedVector.Angle);
-		print ("wallvectorangle: "+wallVector.Angle);
+		print ("wallvector angle: "+wallVector.Angle);
 		print ("final angle: "+finalVectorAngle);
 		print ("final mag: "+finalVectorMag);
 		currentWATVV.WallAvoid = wallVector.Weight;
@@ -225,8 +233,13 @@ public class moveAndCollide : MonoBehaviour {
 				print ("bottomright");
 			}
 		}
+		//print ("xmag times visited (inside): "+xmag);
+		//print ("zmag times visited (inside): "+zmag);
 		finalmag = Mathf.Sqrt (Mathf.Pow (xmag, 2) + Mathf.Pow (zmag, 2));
-		weightTimesVisitedAngle = (calculateRaycastAngle (xmag, zmag));
+		weightTimesVisitedAngle = ((calculateRaycastAngle (xmag, zmag))*-1-180);
+		weightTimesVisitedAngle = (weightTimesVisitedAngle * Mathf.PI * 2 / 360);
+		//print ("angle times visited (inside): "+ weightTimesVisitedAngle);
+		//print ("magnitude times visited (inside): "+ finalmag);
 		Vector timesVisitedVector = new Vector (finalmag, weightTimesVisitedAngle);
 		return timesVisitedVector;
 	}
@@ -255,11 +268,13 @@ public class moveAndCollide : MonoBehaviour {
 								finalY = finalY+ zmag;
 						}
 			}
-			print ("wall zmag in func: "+finalY);
-			print ("wall xmag in func: "+finalX);
+			//print ("wall zmag in func: "+finalY);
+			//print ("wall xmag in func: "+finalX);
 				finalWeight = Mathf.Sqrt (Mathf.Pow (finalX, 2) + Mathf.Pow (finalY, 2));
-				print ("wall V when using raycastangle: "+ calculateRaycastAngle(finalX, finalY));
+			//print ("wall magnitude in func: "+finalWeight);
+				//print ("wall V when using raycastangle: "+ calculateRaycastAngle(finalX, finalY));
 				finalAngle = calculateRaycastAngle(finalX, finalY);
+			//print ("wall angle in func: "+finalAngle);
 				Vector wallVector = new Vector (finalWeight, finalAngle);
 				return wallVector;
 				}
@@ -302,6 +317,7 @@ public class moveAndCollide : MonoBehaviour {
 			if(xmag>0){
 				finalAngle = 0;
 			}else{
+				//print ("I HERE");
 				finalAngle = 180;
 			}
 		} else {
@@ -319,8 +335,10 @@ public class moveAndCollide : MonoBehaviour {
 				}
 			}
 		}
+		//print ("final angle: "+finalAngle);
 		finalAngle = ((finalAngle / (2 * Mathf.PI)) * 360);
 		finalAngle = -(180+finalAngle) ;
+		//print ("final angle: "+finalAngle);
 		return finalAngle;
 	}
 

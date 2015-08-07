@@ -498,10 +498,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d315adeac4b31474c87f4e6726fd9f81, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  radius: 1
-  gridMultiplier: 1
-  wallWeighting: 1
-  visitedWeighting: 0
+  radius: .899999976
+  gridMultiplier: .800000012
+  wallWeighting: 3
+  visitedWeighting: 1
 --- !u!54 &78976797
 Rigidbody:
   m_ObjectHideFlags: 0
