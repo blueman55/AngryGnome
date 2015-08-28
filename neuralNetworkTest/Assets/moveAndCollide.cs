@@ -5,15 +5,15 @@ using System.Collections.Specialized;
 using System.Linq;
 
 public class moveAndCollide : MonoBehaviour {
-	List<Collider> validColliders; //holds all colliders sphere has sensed
+	List<Collider> validColliders; //holds all colliders sphere has sensed since start time
 	public float radius = .01f; //radius within which objects can be sensed. Adjust as desired.
-	public float gridMultiplier = 2f; //changes the size of each square of grid, effecting precision. Adjust as desired.
+	public float gridMultiplier = 2f; //changes the size of each 'discovered' square of grid, effecting precision. Adjust as desired.
 	GameObject testSphere; //here for testing
-	Collider[] hitColliders; // holds all colliders currently sense
-	XZKey previousSquare;
-	bool firstFrame;
-	public float wallWeighting = 1;
-	public float visitedWeighting = 1;
+	Collider[] hitColliders; // holds all colliders currently sensed, volatile, lost every frame
+	XZKey previousSquare; //previous square visited
+	bool firstFrame; // is this the first frame
+	public float wallWeighting = 1; //weight for wall vector vs other vectors
+	public float visitedWeighting = 1; //weight for visited vector vs other vectors
 
 	private List<listNode> neuralValues;
 	//the environment is divided up into squares, the amount of which is set by the multiplier gridMultiplier
@@ -21,6 +21,11 @@ public class moveAndCollide : MonoBehaviour {
 	//each square is linked to a weight and angle(vector), and times visited.
 	//the vector and times visited are updated when neccessary for each square
 
+	///<summary>
+	/// node stored within the list 'neuralValues', holds a key value 'pair'. The key, is a 
+	/// tuple (XZKey) which holds the position of a discovered square. The value holds the weight, angle, times visited, and 
+	/// how strongly within a square the agent should avoid walls.
+	/// </summary>
 	public class listNode
 	{
 		public XZKey xzKey { get; set;}
@@ -32,7 +37,7 @@ public class moveAndCollide : MonoBehaviour {
 	}
 
 	///<summary>
-	/// used to create a dictionary mapping one key to two values
+	/// used to hold a discovered squares weight, angle, times visited, and avoid wall weight
 	///</summary>
 	public class weightAngleTimesVisited
 	{
@@ -49,8 +54,7 @@ public class moveAndCollide : MonoBehaviour {
 	}
 
 	///<summary>
-	/// holds the XZ key for the dictionary, each XZ key must have a unique name
-	/// for unique name ASUMPTION WALLS NEVER OVERLAP
+	/// holds the XZ key for a discovered square, the coordinates for the square
 	/// </summary>
 	public class XZKey
 	{
@@ -62,6 +66,9 @@ public class moveAndCollide : MonoBehaviour {
 		}
 	}
 
+	///<summary>
+	/// for adding and subtracting vectors, a simple vector class
+	/// </summary>
 	public class Vector
 	{
 		public float Weight { get; set; }
@@ -78,42 +85,47 @@ public class moveAndCollide : MonoBehaviour {
 	/// The smaller the gridmultiplier, the more preces the neural network.
 	/// </summary>
 	void currentSpace(double x, double z, Collider[] hitcolliders){
-		//create a new key to compare against based on where sphere is on 'grid'
-		float nearestX = findNearest(x); 
-		float nearestZ = findNearest(z);
-		XZKey currentKey = new XZKey (nearestX,nearestZ);
-		weightAngleTimesVisited currentWTV = new weightAngleTimesVisited(0,0,0,0);
-		if (firstFrame == true) {
-			previousSquare.X = currentKey.X;
-			previousSquare.Z = currentKey.Z;
-			listNode firstNode = new listNode(currentKey, currentWTV);
-			neuralValues.Add (firstNode);
+
+		float nearestX = findNearest(x); //nearest multiplier of 'gridmultiplier'. when different then previous, agent has entered a new square
+		float nearestZ = findNearest(z); //same as above, for z axis
+		XZKey currentKey = new XZKey (nearestX,nearestZ); //create a new key based on nearest x and nearest y for comparison (where the square is)
+		weightAngleTimesVisited currentWTV = new weightAngleTimesVisited(0,0,0,0); //initialize a new weightAngleTimesVisited object
+
+		if (firstFrame == true) { //if this is the first frame
+			previousSquare.X = currentKey.X; //set the previousSquare value for the s time
+			previousSquare.Z = currentKey.Z; //
+			listNode firstNode = new listNode(currentKey, currentWTV); //create a first list node to remember the current square
+			neuralValues.Add (firstNode); //remember this square, add it to the list
 		}
-		//check if neural values has found square, if not add, if found update wtv
+
+		//check if current square already exists in knowledge base, if not found add, if found update values associated (currentWTV)
 		bool found = false;
 		for (int i=0; i<(neuralValues.Count); i++){
-			if(neuralValues[i].xzKey.X == currentKey.X && neuralValues[i].xzKey.Z == currentKey.Z){
+			if(neuralValues[i].xzKey.X == currentKey.X && neuralValues[i].xzKey.Z == currentKey.Z){ //does this square exists in the knowledge base?
 				found = true;
-				currentWTV.Angle = neuralValues[i].watv.Angle;
-				currentWTV.Weight = neuralValues[i].watv.Weight;
+				currentWTV.Angle = neuralValues[i].watv.Angle; //set the temp weightAngleTimesVisited to the stored squares old values
+				currentWTV.Weight = neuralValues[i].watv.Weight; // the above comment is for later calculations
 				currentWTV.Weight = neuralValues[i].watv.TimesVisited;
 			}
 		}
-		if (found == false) {
-			listNode currentNode = new listNode(currentKey, currentWTV);
-			neuralValues.Add(currentNode);
+		if (found == false) { //if the current square was not found, add it to the knowledge base
+			listNode currentNode = new listNode(currentKey, currentWTV); //currentWTV here is still set to default initialize values
+			neuralValues.Add(currentNode); //add to the knowledge base
 		}
-		Vector finalVector = calculateFinalVector (hitcolliders, ref currentWTV, currentKey);
+
+		Vector finalVector = calculateFinalVector (hitcolliders, ref currentWTV, currentKey); // caluculate the new final weight and angle for a square
+		//should update every frame as new knowledge is learned, and as agent passes through square
+
 		//update weight, timesvisited, angle values for spot on 'grid'
 		if (finalVector != null) {
 			for (int i=0; i<neuralValues.Count; i++){
-				if(neuralValues[i].xzKey.X == currentKey.X && neuralValues[i].xzKey.Z == currentKey.Z){
-					neuralValues[i].watv.Angle = finalVector.Angle;
-					neuralValues[i].watv.WallAvoid = currentWTV.WallAvoid;
-					neuralValues[i].watv.Weight = finalVector.Weight;
-					if(firstFrame == true || previousSquare.X != nearestX || previousSquare.Z != nearestZ){
-						if(neuralValues[i].watv.TimesVisited < 5){
-					neuralValues[i].watv.TimesVisited = neuralValues[i].watv.TimesVisited + .4f;
+				if(neuralValues[i].xzKey.X == currentKey.X && neuralValues[i].xzKey.Z == currentKey.Z){ //find current square in knowledge base to update
+					neuralValues[i].watv.Angle = finalVector.Angle; //update final angle for square
+					neuralValues[i].watv.WallAvoid = currentWTV.WallAvoid; //update wall avoid weight for square
+					neuralValues[i].watv.Weight = finalVector.Weight; //update final weight for square
+					if(firstFrame == true || previousSquare.X != nearestX || previousSquare.Z != nearestZ){ //for incrementing the times visited a square
+						if(neuralValues[i].watv.TimesVisited < 5){ //never allow the weighting for Timesvisited to overwhelm walls, unexpected behavior occurs
+							neuralValues[i].watv.TimesVisited = neuralValues[i].watv.TimesVisited + .4f;
 						}
 					}
 					currentWTV.Angle = finalVector.Angle;
@@ -122,23 +134,32 @@ public class moveAndCollide : MonoBehaviour {
 			}
 			movement (currentWTV);
 		}
-		previousSquare.X = nearestX;
+		previousSquare.X = nearestX; //for comparing the coordinates of the previous square
 		previousSquare.Z = nearestZ;
 	}
 
+	/// <summary>
+	/// Function for movement of the agent
+	/// </summary>
 	void movement(weightAngleTimesVisited WATV){
-		float weight = WATV.Weight; 
-		//acceptable wall weight (with good results) is between .5 - 3
+		//acceptable wall weight (with good results) is between .5 - 3, after that unexpected behavior occurs
+		//Wall avoid control the speed at which the agent adheres to a new angle when in a new square
 		testSphere.transform.rotation = Quaternion.Lerp (testSphere.transform.rotation, Quaternion.Euler (0, WATV.Angle, 0), WATV.WallAvoid*Time.deltaTime);
 		testSphere.transform.Translate(.05f,0,0);
 	}
 
-
+	/// <summary>
+	/// 
+	/// </summary>
+	/// <returns>The final vector.</returns>
+	/// <param name="hitcolliders">Hitcolliders.</param>
+	/// <param name="currentWATVV">Current WATV.</param>
+	/// <param name="currentKey">Current key.</param>
 	Vector calculateFinalVector(Collider[] hitcolliders, ref weightAngleTimesVisited currentWATVV, XZKey currentKey){
 		//calculate final vector os square
 		//weights of vectors might need tweaking
-		Vector wallVector = calculateWallVector (hitcolliders); //mult
-		Vector timeVisitedVector = calculateTimesVisitedVector (currentWATVV, currentKey);
+		Vector wallVector = calculateWallVector (hitcolliders); //calculates and combines all wall vectors into one final wall vecotr
+		Vector timeVisitedVector = calculateTimesVisitedVector (currentWATVV, currentKey); //calculates and combines all visited vectors into one final vistited vector
 		timeVisitedVector.Weight = timeVisitedVector.Weight * visitedWeighting;
 		wallVector.Weight = wallVector.Weight * wallWeighting;
 		float xmagWall = 0;
@@ -160,15 +181,17 @@ public class moveAndCollide : MonoBehaviour {
 		float finalVectorMag = Mathf.Sqrt((float)Mathf.Pow(xmagFinal, 2) + (float)Mathf.Pow(zmagFinal, 2));
 		Vector wallVectorTEST = calculateWallVector (hitcolliders); //mult
 		float finalVectorAngle = ((calculateRaycastAngle (xmagFinal, zmagFinal)));
-		print ("wallvector angle: "+wallVector.Angle);
-		print ("visitedvector angle: "+timeVisitedVector.Angle);
-		print ("final angle: "+finalVectorAngle);
-		print ("final mag: "+finalVectorMag);
 		currentWATVV.WallAvoid = wallVector.Weight;
-		Vector finalVector = new Vector (finalVectorMag, finalVectorAngle);
+		Vector finalVector = new Vector (finalVectorMag, finalVectorAngle); //the final vector, a combination of the other vector 'types'
 		return finalVector;
 	}
 
+	/// <summary>
+	/// calculates the times visited vector, combination of all minor times visited vectors
+	/// </summary>
+	/// <returns>The times visited vector.</returns>
+	/// <param name="currentWATV">Current WAT.</param>
+	/// <param name="currentKey">Current key.</param>
 	Vector calculateTimesVisitedVector(weightAngleTimesVisited currentWATV, XZKey currentKey){
 		//this should return the weight of times visited (this can be fiddled with, global vsrisble)
 		// and the angle generated by times visited
@@ -221,6 +244,11 @@ public class moveAndCollide : MonoBehaviour {
 		return timesVisitedVector;
 	}
 
+	/// <summary>
+	/// Calculates the final wall vector, a combination of all the individual wall vectors
+	/// </summary>
+	/// <returns>The wall vector.</returns>
+	/// <param name="hitColliders">Hit colliders.</param>
 	Vector calculateWallVector(Collider[] hitColliders){
 		if (hitColliders != null) {
 						float finalAngle = 0;
@@ -260,6 +288,7 @@ public class moveAndCollide : MonoBehaviour {
 		return Mathf.Sqrt (dmag);
 		}
 
+
 	float calcXmag(float x2, float x1){
 		return (x2 - x1);
 	}
@@ -269,7 +298,7 @@ public class moveAndCollide : MonoBehaviour {
 	}
 
 	/// <summary>
-	/// returns the angle from the moving units point of origin to a centerpoint of a collider
+	/// returns the angle from the agent's origin to the centerpoint of a collider(wall, typically)
 	/// This is used to calculate the distance, as well as in neural networ weighting
 	/// </summary>
 	float calculateRaycastAngle(float xmag, float zmag){
@@ -306,10 +335,7 @@ public class moveAndCollide : MonoBehaviour {
 		finalAngle = -(180+finalAngle) ;
 		return finalAngle;
 	}
-
-	float calcuatetimesVisitedWeight(int timesVisited){
-		return 1f;
-	}
+	
 
 	bool containsKey(Dictionary<XZKey, weightAngleTimesVisited> neuralValues, XZKey currentKey){
 		bool found = false;
@@ -352,7 +378,7 @@ public class moveAndCollide : MonoBehaviour {
 		firstFrame = true;
 		neuralValues = new List<listNode> {}; 
 		validColliders = new List<Collider>(); // initialize validColliders
-		testSphere = GameObject.Find("Sphere"); //FOR TESTING
+		testSphere = GameObject.Find("Sphere"); //the unit for testing
 		previousSquare = new XZKey (0, 0);
 
 	}
@@ -361,28 +387,28 @@ public class moveAndCollide : MonoBehaviour {
 	/// see method headers for method descriptions
 	// Update is called once per frame
 	void Update () {
-		Vector3 lockedAxis = testSphere.transform.eulerAngles;
+		Vector3 lockedAxis = testSphere.transform.eulerAngles; //lock the x and y axis, so agent can only rotate on z axis
 		lockedAxis.x = 0;
 		lockedAxis.z = 0;
 		testSphere.transform.eulerAngles = lockedAxis;
 		hitColliders = Physics.OverlapSphere (transform.position, radius);
 		calculateValidColliders(hitColliders); //see method
-		currentSpace (testSphere.transform.position.x, testSphere.transform.position.z, hitColliders);
-		printValidCollider ();
-		if (firstFrame == true) {
+		currentSpace (testSphere.transform.position.x, testSphere.transform.position.z, hitColliders); //see method
+		printValidCollider (); //turns seen walls blue, for understanding behavior
+		if (firstFrame == true) { //set to false if no longer first frame
 			firstFrame = false;
 				}
 	}
 
 	/// <summary>
-	/// Should read a saved state for a neural network
+	/// Should read a saved state for a neural network, future method
 	/// </summary>
 	void readNeuralNetworkState(){
 
 	}
 
 	////METHOD updates list of known walls found (cubes) based on those currently in vision.
-    //// after first pass, would like only segments of wall in view, instead of discovering whole cube (section of wall)
+    //// after first pass, would like only remember segments of wall in view, instead of discovering whole cube (section of wall)
     //// once one portion is seen. 
 	void calculateValidColliders(Collider[] hitColliders){
 		bool matchFound = false; // starts false at default to no matching wall found/remembered
@@ -401,20 +427,7 @@ public class moveAndCollide : MonoBehaviour {
 			}
 		}
 	}
-
-	void calculateCollisionPosition(){
-
-	}
-
-
-	/// 
-	/// 
-	/// Excecute on a collision
-	void OnCollisionEnter(Collision coll)
-	{
-		//if(coll.gameObject.name=="testWall")    
-	//}
-	}
+	
 
 	/// <summary>
 	/// turns found walls blue, for testing purposes
@@ -425,9 +438,88 @@ public class moveAndCollide : MonoBehaviour {
 		}
 	}
 
-	/// <summary>
-	/// The grid on which the neural network will decide values
-	/// </summary>
-	void setupGrid(){
+/// <summary>
+/// Unit tests for individual methods
+/// </summary>
+/// <returns><c>true</c>, if raycast angle position xmag only was tested, <c>false</c> otherwise.</returns>
+
+	bool testRaycastAnglePosXmagOnly(){
+		if (calculateRaycastAngle (1, 0) == 0) {
+			return true;
+				} else {
+			return false;
 		}
+	}
+	bool testRaycastAnglePosZmagOnly(){
+		if (calculateRaycastAngle (0, 1) == 90) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testRaycastAngleNegZmagOnly(){
+		if (calculateRaycastAngle (0, -1) == 270) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testRaycastAngleNegXmagOnly(){
+		if (calculateRaycastAngle (-1, 0) == 180) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testRaycastAnglePosXZQuadrant(){
+		if (calculateRaycastAngle (1, 1) > 0 && calculateRaycastAngle(1,1) < 90) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testRaycastAngleNegXPosZQuadrant(){
+		if (calculateRaycastAngle (-1, 1) > 90 && calculateRaycastAngle(-1,1) < 180) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testRaycastAngleNegXNegZQuadrant(){
+		if (calculateRaycastAngle (-1, -1) > 180 && calculateRaycastAngle(-1,-1) < 270) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testRaycastAnglePosXNegZQuadrant(){
+		if (calculateRaycastAngle (1, -1) > 360 && calculateRaycastAngle(1,-1) < 270) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	bool testcalcXmag(){
+		if (calcXmag (4, 2) == 2) {
+						return true;
+				} else {
+						return false;
+				}
+	}
+	bool testFindNearest(){
+		gridMultiplier = .5f;
+		if (findNearest (1.7) == 1.5) {
+						return true;
+				} else {
+			return false;
+				}
+	}
+	bool testCalculateDistance(){
+		if (calculateDistance (2, 2) == 2) {
+						return true;
+				} else {
+						return false;
+				}
+	}
+
 }
