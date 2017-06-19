@@ -1,0 +1,19 @@
+~~~~~~~
+General read me for development work
+~~~~~~~
+
+
+Models and textures
+	Maya project setup
+		- A folder has been added to the AngryGnome repo called ModelsAndTextures. When creating a new project in maya, go to File > Project Window, and set the location to this folder.
+		- Then press accept
+
+	Saving a Maya project
+		- Save as ascii for backwards compatibility
+
+	Other suggestions
+		- turn on autosaves
+			- windows > settings and preferences > preferences > files/projects > autosaves > enable
+		- turn on infinite undo
+		- turn on incremental save
+
